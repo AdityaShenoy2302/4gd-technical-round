@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Invoice Extractor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-10">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+
+    <h2 class="text-xl font-bold mb-4">Upload Invoice PDF</h2>
+
+    <input type="file" id="file" accept=".pdf" class="mb-4" />
+    <button onclick="upload()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400" id="uploadBtn">
+      Upload & Extract
+    </button>
+
+    <div id="status" class="mt-4 p-3 rounded hidden"></div>
+
+    <div class="grid grid-cols-2 gap-4 mt-6">
+      <input id="invoiceNumber" placeholder="Invoice Number" class="border p-2" readonly>
+      <input id="poNumber" placeholder="PO Number" class="border p-2" readonly>
+      <input id="supplierName" placeholder="Supplier Name" class="border p-2" readonly>
+      <input id="totalAmount" placeholder="Total Amount" class="border p-2" readonly>
+      <input id="discount" placeholder="Discount" class="border p-2" readonly>
+      <input id="taxAmount" placeholder="Tax Amount" class="border p-2" readonly>
+      <input id="vat" placeholder="VAT" class="border p-2" readonly>
+      <input id="sgst" placeholder="SGST" class="border p-2" readonly>
+      <input id="cgst" placeholder="CGST" class="border p-2" readonly>
+      <input id="igst" placeholder="IGST" class="border p-2" readonly>
+      <input id="invoiceAmount" placeholder="Invoice Amount" class="border p-2 col-span-2" readonly>
+    </div>
+  </div>
+
+<script>
+function showStatus(message, isError = false) {
+  const status = document.getElementById("status");
+  status.className = `mt-4 p-3 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
+  status.textContent = message;
+  status.classList.remove('hidden');
+}
+
+function hideStatus() {
+  document.getElementById("status").classList.add('hidden');
+}
+
+async function upload() {
+  const fileInput = document.getElementById("file");
+  const file = fileInput.files[0];
+  const uploadBtn = document.getElementById("uploadBtn");
+
+  if (!file) {
+    showStatus("Please select a file first", true);
+    return;
+  }
+
+  // Clear previous data
+  const fields = ["invoiceNumber", "poNumber", "supplierName", "totalAmount",
+                  "discount", "taxAmount", "vat", "sgst", "cgst", "igst", "invoiceAmount"];
+  fields.forEach(field => {
+    const el = document.getElementById(field);
+    if (el) el.value = "";
+  });
+
+  uploadBtn.disabled = true;
+  showStatus("Processing invoice... Please wait (this may take 30-60 seconds).");
+
+  try {
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch("/upload", {
+      method: "POST",
+      body: form,
+      // Add timeout handling
+      signal: AbortSignal.timeout(120000) // 2 minute timeout
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const response = await res.json();
+
+    if (response.success && response.data) {
+      showStatus("✅ Invoice processed successfully!");
+
+      // Populate fields with extracted data
+      const data = response.data;
+
+      if (data.invoiceNumber) document.getElementById("invoiceNumber").value = data.invoiceNumber || "";
+      if (data.poNumber) document.getElementById("poNumber").value = data.poNumber || "";
+      if (data.supplierName) document.getElementById("supplierName").value = data.supplierName || "";
+      if (data.totalAmount) document.getElementById("totalAmount").value = data.totalAmount || "";
+      if (data.discount) document.getElementById("discount").value = data.discount || "";
+      if (data.taxAmount) document.getElementById("taxAmount").value = data.taxAmount || "";
+      if (data.vat) document.getElementById("vat").value = data.vat || "";
+      if (data.sgst) document.getElementById("sgst").value = data.sgst || "";
+      if (data.cgst) document.getElementById("cgst").value = data.cgst || "";
+      if (data.igst) document.getElementById("igst").value = data.igst || "";
+      if (data.invoiceAmount) document.getElementById("invoiceAmount").value = data.invoiceAmount || "";
+
+    } else {
+      showStatus(`❌ Error: ${response.error || "Unknown error"}`, true);
+    }
+  } catch (error) {
+    if (error.name === 'TimeoutError') {
+      showStatus(`❌ Request timed out. The PDF may be too large or complex.`, true);
+    } else if (error.message.includes('Failed to fetch')) {
+      showStatus(`❌ Connection error. Check if the Flask server is running and check the terminal for errors.`, true);
+    } else {
+      showStatus(`❌ Error: ${error.message}`, true);
+    }
+    console.error("Upload error:", error);
+  } finally {
+    uploadBtn.disabled = false;
+  }
+}
+</script>
+
+</body>
+</html>

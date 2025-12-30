@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env
+
+# PyCharm settings
+.idea/
+
+# Log files
+*.log
+
+# Cache
+*.cache/
+.cache/
+*.pyc
+
+# Streamlit specific
+.streamlit/config.toml
